@@ -70,6 +70,12 @@ def _parse_header(header, spec):
 		s=st.size
 	return s,d
 
+def _render_header(d,spec):
+	st=struct.Struct(_spec2fmtstr(spec))
+	return st.pack(
+	 *(d[k] for k,v in spec[1].items())
+	)
+
 with open(os.path.join(os.path.dirname(__file__),'CP00437.txt')) as f:
 	CP437_Names=(*(
 		line.split(maxsplit=2)[-1].strip() for line in
@@ -78,7 +84,12 @@ with open(os.path.join(os.path.dirname(__file__),'CP00437.txt')) as f:
 		 f)
 	),)
 
-_ceil_div=lambda a,b=8:-(-a//b)
+_ceil_div=lambda a,b=8:int(-(-a//b))
+
+def _join(*args,joiner=None):
+	if joiner is None:
+		joiner=type(args[0])([])
+	return joiner.join(args)
 
 class Psf:
 	def __init__(self,psf_file=None):
@@ -127,13 +138,13 @@ class Psf:
 			for i in range(nglyphs):
 				self.glyphs.append(f.read(glyphsize))
 			if has_unicode_table:
-				#TODO: make this streaming/iterable
-				#TODO: sequences
-				self.unicode_table=[
-					c.rstrip(sep).decode(cod)
-					for c in
-					f.read().split(sep,nglyphs-1)
-				]
+				#TODO: make this streaming
+				self.unicode_table=[]
+				self.unicode_table_seq=[]
+				for c in f.read().split(sep,nglyphs)[:-1]:
+					s=c.split(seq)
+					self.unicode_table.append(s[0].decode(cod))
+					self.unicode_table_seq.append([ch.decode(cod) for ch in s[1:]])
 	def display(self, w=16):
 		#TODO: more formatting options
 		im=Image.new(mode='1',size=(self.size[0]*w,_ceil_div(self.size[0]*len(self.glyphs),w)))
@@ -152,3 +163,80 @@ class Psf:
 			 )
 			)
 		return im.show()
+	def _save_v1(self, path):
+		cod=PSF1_ENCODING
+		chl=len('a'.encode(cod))
+		sep=PSF1_SEPARATOR
+		seq=PSF1_STARTSEQ
+		
+		h=dict()
+		
+		h['magic']=PSF1_MAGIC
+		
+		h['mode'] = 0x00
+		ut=(c.encode(cod) for c in self.unicode_table) if hasattr(self, 'unicode_table') else []
+		uts=(c.encode(cod) for c in self.unicode_table_seq) if hasattr(self, 'unicode_table_seq') else []
+		t=sep.join(map( seq.join, zip(ut,uts) ))
+		if ut: # ut, or t?
+			h['mode'] |= PSF1_MODEHASTAB
+		if uts:
+			h['mode'] |= PSF1_MODEHASSEQ
+		if len(self.glyphs)>256:
+			h['mode'] |= PSF1_MODE512
+		
+		assert self.size[0]<=8
+		h['charsize'] = max(map(len,self.glyphs))
+		
+		with open(path, 'wb') as f:
+			f.write(_render_header(h,PSF1_SPEC))
+			for glyph in self.glyphs:
+				f.write(glyph)
+			f.write(t)
+	
+	def _save_v2(self, path, minorversion=PSF2_MAXVERSION):
+		cod=PSF2_ENCODING
+		chl=len('a'.encode(cod))
+		sep=PSF2_SEPARATOR
+		seq=PSF2_STARTSEQ
+		
+		h=dict()
+		
+		h['magic']=PSF2_MAGIC
+		h['version']=minorversion
+		h['headersize']=struct.calcsize(_spec2fmtstr(PSF2_SPEC))
+		h['flags']=0x00
+		
+		ut = self.unicode_table if hasattr(self, 'unicode_table') else []
+		uts = self.unicode_table_seq if hasattr(self, 'unicode_table_seq') else []
+		t=bytearray()
+		if ut or uts:
+			for i in range(len(self.glyphs)):
+				t += ut[i].encode(cod)
+				t += bytes().join( bytes().join(seq+s.encode(cod) for s in S) for S in uts)
+				t += sep
+			h['flags'] |= PSF2_HAS_UNICODE_TABLE
+		
+		h['length']=len(self.glyphs)
+		h['charsize']=max(map(len,self.glyphs))
+		h['width'],h['height'] = self.size
+		
+		with open(path, 'wb') as f:
+			f.write(_render_header(h,PSF2_SPEC))
+			for glyph in self.glyphs:
+				f.write(glyph)
+			f.write(t)
+	
+	def save(self, path, version=None):
+		if version is None:
+			version = 1 if (
+			 self.size[0]==8
+			and
+			 len(self.glyphs) in (256,512)
+			) else 2
+		
+		if version==1:
+			return self._save_v1(path)
+		elif version==2:
+			return self._save_v2(path)
+		else:
+			raise ValueError
