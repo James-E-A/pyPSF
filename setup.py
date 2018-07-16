@@ -11,4 +11,5 @@ setuptools.setup(
 	 "Development Status :: 4 - Beta",
 	],
 	include_package_data=True,
+	install_requires=["Pillow"]
 )
