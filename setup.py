@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
 	name="pypsf",
-	version="0.3.1b1",
+	version="0.3.1",
 	author="James Edington",
 	author_email="james@ishygddt.xyz",
 	description="Library for interacting with PC Screen Font files",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from psf import Psf,CP437_Names
+from .psf import Psf,CP437_Names
 from PIL import Image
 import os,os.path
 import sys
