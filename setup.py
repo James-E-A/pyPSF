@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
 	name="pypsf",
-	version="0.3.0b1",
+	version="0.3.1b1",
 	author="James Edington",
 	author_email="james@ishygddt.xyz",
 	description="Library for interacting with PC Screen Font files",
@@ -14,7 +14,8 @@ setuptools.setup(
 	install_requires=["Pillow"],
 	entry_points={
 	 'console_scripts': [
-		"psf_extract=psf.util:psf2dir_entrypoint"
+		"psf2dir=psf.util:psf2dir_entrypoint",
+		"dir2psf=psf.util:dir2psf_entrypoint"
 	 ],
 	}
 )
