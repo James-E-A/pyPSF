@@ -87,7 +87,7 @@ def _argparse_dict2XXkwarg(metad,d,argv=sys.argv):
 	return vars(P.parse_args())
 
 def _e(md,ad,argv):
-	return dict(globals(),**locals())[md['prog']](**_argparse_dict2XXkwarg(md,ad,_fix_None(argv)))
+	return globals()[md['prog']](**_argparse_dict2XXkwarg(md,ad,_fix_None(argv)))
 
 if __name__=="__main__":
 	sys.exit(__main__(*sys.argv))
