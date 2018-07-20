@@ -19,15 +19,15 @@ PSF1_MODEHASTAB		= 0x02
 PSF1_MODEHASSEQ		= 0x04
 PSF1_MODEHASSEQ_msg	= 'I have no idea yet what the "HASSEQ" mode means.\nIf you know whether (and, if so, how) it is different from "HASTAB",\nplease email me at agentorange@8chan.co so I can fix it.'
 PSF1_MAXMODE		= 0x05
-PSF1_ENCODING		= 'utf-16le'
-PSF1_SEPARATOR		= '\uFFFF'.encode(PSF1_ENCODING)
-PSF1_STARTSEQ		= '\uFFFE'.encode(PSF1_ENCODING)
+PSF1_ENCODING		= ('utf-16le','surrogatepass')
+PSF1_SEPARATOR		= '\uFFFF'.encode(*PSF1_ENCODING)
+PSF1_STARTSEQ		= '\uFFFE'.encode(*PSF1_ENCODING)
 
 PSF2_MAGIC		= (0x864ab572).to_bytes(32//8,'little')
 """32-bit magic 0x864ab572"""
 PSF2_HAS_UNICODE_TABLE	= 0x01
 PSF2_MAXVERSION		= 0
-PSF2_ENCODING		= 'utf-8'
+PSF2_ENCODING		= ('utf-8',)
 PSF2_SEPARATOR		= b'\xFF'
 PSF2_STARTSEQ		= b'\xFE'
 
@@ -103,7 +103,7 @@ class Psf:
 				 PSF2_SPEC
 				)
 				cod=PSF2_ENCODING
-				chl=len('a'.encode(cod))
+				chl=len('a'.encode(*cod))
 				sep=PSF2_SEPARATOR
 				seq=PSF2_STARTSEQ
 				#self.version=(2,hedr['version'])
@@ -120,7 +120,7 @@ class Psf:
 				 PSF1_SPEC
 				)
 				cod=PSF1_ENCODING
-				chl=len('a'.encode(cod))
+				chl=len('a'.encode(*cod))
 				sep=PSF1_SEPARATOR
 				seq=PSF1_STARTSEQ
 				#self.version=(1,)
@@ -141,8 +141,8 @@ class Psf:
 				#TODO: make this streaming
 				self.unicode_table=[]
 				self.unicode_table_seq=[]
-				for c in f.read().decode(cod).split(sep.decode(cod)):
-					s=c.split(seq.decode(cod))
+				for c in f.read().decode(*cod).split(sep.decode(*cod)):
+					s=c.split(seq.decode(*cod))
 					self.unicode_table.append(s[0])
 					self.unicode_table_seq.append(s[1:])
 	def display(self, cols=16):
@@ -168,7 +168,7 @@ class Psf:
 		return im.show()
 	def _save_v1(self, path):
 		cod=PSF1_ENCODING
-		chl=len('a'.encode(cod))
+		chl=len('a'.encode(*cod))
 		sep=PSF1_SEPARATOR
 		seq=PSF1_STARTSEQ
 		
@@ -177,8 +177,8 @@ class Psf:
 		h['magic']=PSF1_MAGIC
 		
 		h['mode'] = 0x00
-		ut=(c.encode(cod) for c in self.unicode_table) if hasattr(self, 'unicode_table') else []
-		uts=(c.encode(cod) for c in self.unicode_table_seq) if hasattr(self, 'unicode_table_seq') else []
+		ut=(c.encode(*cod) for c in self.unicode_table) if hasattr(self, 'unicode_table') else []
+		uts=(c.encode(*cod) for c in self.unicode_table_seq) if hasattr(self, 'unicode_table_seq') else []
 		t=sep.join(map( seq.join, zip(ut,uts) ))
 		if ut: # ut, or t?
 			h['mode'] |= PSF1_MODEHASTAB
@@ -198,7 +198,7 @@ class Psf:
 	
 	def _save_v2(self, path, minorversion=PSF2_MAXVERSION):
 		cod=PSF2_ENCODING
-		chl=len('a'.encode(cod))
+		chl=len('a'.encode(*cod))
 		sep=PSF2_SEPARATOR
 		seq=PSF2_STARTSEQ
 		
@@ -214,8 +214,8 @@ class Psf:
 		t=bytearray()
 		if ut or uts:
 			for i in range(len(self.glyphs)):
-				t += ut[i].encode(cod)
-				t += bytes().join( bytes().join(seq+s.encode(cod) for s in S) for S in uts)
+				t += ut[i].encode(*cod)
+				t += bytes().join( bytes().join(seq+s.encode(*cod) for s in S) for S in uts)
 				t += sep
 			h['flags'] |= PSF2_HAS_UNICODE_TABLE
 		
