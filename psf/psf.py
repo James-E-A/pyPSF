@@ -145,9 +145,12 @@ class Psf:
 					s=c.split(seq.decode(cod))
 					self.unicode_table.append(s[0])
 					self.unicode_table_seq.append(s[1:])
-	def display(self, w=16):
+	def display(self, cols=16):
 		#TODO: more formatting options
-		im=Image.new(mode='1',size=(self.size[0]*w,_ceil_div(self.size[0]*len(self.glyphs),w)))
+		im=Image.new(mode='1',size=(
+		 self.size[0] * cols, #WIDTH = (glyph-width) TIMES (number of columns)
+		 self.size[1] * _ceil_div(len(self.glyphs),cols) #HEIGHT = (glyph-height) TIMES ceil( number of glyphs / number of columns )
+		))
 		for i in range(len(self.glyphs)):
 			im.paste(
 			 Image.frombytes(
@@ -156,10 +159,10 @@ class Psf:
 			  data=self.glyphs[i]
 			 ),
 			 (
-			  self.size[0]*(i%w),       #left
-			  self.size[1]*(i//w),  #upper
-			  self.size[0]*((i%w)+1),   #right
-			  self.size[1]*(i//w+1) #lower
+			  self.size[0]*(i%cols),       #left
+			  self.size[1]*(i//cols),  #upper
+			  self.size[0]*((i%cols)+1),   #right
+			  self.size[1]*(i//cols+1) #lower
 			 )
 			)
 		return im.show()
