@@ -141,10 +141,10 @@ class Psf:
 				#TODO: make this streaming
 				self.unicode_table=[]
 				self.unicode_table_seq=[]
-				for c in f.read().split(sep,nglyphs)[:-1]:
-					s=c.split(seq)
-					self.unicode_table.append(s[0].decode(cod))
-					self.unicode_table_seq.append([ch.decode(cod) for ch in s[1:]])
+				for c in f.read().decode(cod).split(sep.decode(cod)):
+					s=c.split(seq.decode(cod))
+					self.unicode_table.append(s[0])
+					self.unicode_table_seq.append(s[1:])
 	def display(self, w=16):
 		#TODO: more formatting options
 		im=Image.new(mode='1',size=(self.size[0]*w,_ceil_div(self.size[0]*len(self.glyphs),w)))
