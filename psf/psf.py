@@ -9,6 +9,7 @@
 import struct
 from collections import OrderedDict
 from PIL import Image
+import re
 #import unicodedata
 import os.path
 import string
@@ -96,56 +97,77 @@ class Psf:
 		if os.path.isdir(psf_file):
 			raise NotImplementedError
 		
-		with open(psf_file, 'r+b') as f:
-			if PSF2_MAGIC_OK(f.peek(len(PSF2_MAGIC))):
-				s,hedr=_parse_header(
-				 f.read(struct.calcsize(_spec2fmtstr(PSF2_SPEC))),
-				 PSF2_SPEC
-				)
-				cod=PSF2_ENCODING
-				chl=len('a'.encode(*cod))
-				sep=PSF2_SEPARATOR
-				seq=PSF2_STARTSEQ
-				#self.version=(2,hedr['version'])
-				assert hedr['version'] <= PSF2_MAXVERSION
-				
-				has_unicode_table = bool(hedr['flags']&PSF2_HAS_UNICODE_TABLE)
-				nglyphs           = hedr['length']
-				glyphsize         = hedr['charsize']
-				self.size         = (hedr['width'],hedr['height'])
-			
-			elif PSF1_MAGIC_OK(f.peek(len(PSF1_MAGIC))):
-				s,hedr=_parse_header(
-				 f.read(struct.calcsize(_spec2fmtstr(PSF1_SPEC))),
-				 PSF1_SPEC
-				)
-				cod=PSF1_ENCODING
-				chl=len('a'.encode(*cod))
-				sep=PSF1_SEPARATOR
-				seq=PSF1_STARTSEQ
-				#self.version=(1,)
-				if hedr['mode']&PSF1_MODEHASSEQ:
-					raise NotImplementedError(PSF1_MODEHASSEQ_msg)
-				
-				has_unicode_table = bool(hedr['mode']&PSF1_MODEHASTAB)
-				nglyphs           = 512 if hedr['mode']&PSF1_MODE512 else 256
-				glyphsize         = hedr['charsize']
-				self.size         = (8,glyphsize)
-			else:
-				raise ValueError("No valid header found")
-			f.seek(s)
+		if psf_file.endswith('png'):
+			im=Image.open(psf_file)
+			w,h=re.match(r'.*(\d+)x(\d+)', psf_file).groups()[0:2]
+			w=int(w)
+			h=int(h)
+			self.size=(w,h)
 			self.glyphs=[]
-			for i in range(nglyphs):
-				self.glyphs.append(f.read(glyphsize))
-			if has_unicode_table:
-				#TODO: make this streaming
-				self.unicode_table=[]
-				self.unicode_table_seq=[]
-				for c in f.read().decode(*cod).split(sep.decode(*cod)):
-					s=c.split(seq.decode(*cod))
-					self.unicode_table.append(s[0])
-					self.unicode_table_seq.append(s[1:])
-	def display(self, cols=16):
+			x,y=0,0
+			while (y+h)<=im.height:
+				self.glyphs.append(
+				  im.crop(
+					(x,y,
+					x+w,y+h)
+				  ).convert('1').tobytes()
+				)
+				x += w
+				
+				if (x+w)>im.width:
+					x = 0
+					y += h
+		else:
+			with open(psf_file, 'r+b') as f:
+				if PSF2_MAGIC_OK(f.peek(len(PSF2_MAGIC))):
+					s,hedr=_parse_header(
+					 f.read(struct.calcsize(_spec2fmtstr(PSF2_SPEC))),
+					 PSF2_SPEC
+					)
+					cod=PSF2_ENCODING
+					chl=len('a'.encode(*cod))
+					sep=PSF2_SEPARATOR
+					seq=PSF2_STARTSEQ
+					#self.version=(2,hedr['version'])
+					assert hedr['version'] <= PSF2_MAXVERSION
+					
+					has_unicode_table = bool(hedr['flags']&PSF2_HAS_UNICODE_TABLE)
+					nglyphs           = hedr['length']
+					glyphsize         = hedr['charsize']
+					self.size         = (hedr['width'],hedr['height'])
+				
+				elif PSF1_MAGIC_OK(f.peek(len(PSF1_MAGIC))):
+					s,hedr=_parse_header(
+					 f.read(struct.calcsize(_spec2fmtstr(PSF1_SPEC))),
+					 PSF1_SPEC
+					)
+					cod=PSF1_ENCODING
+					chl=len('a'.encode(*cod))
+					sep=PSF1_SEPARATOR
+					seq=PSF1_STARTSEQ
+					#self.version=(1,)
+					if hedr['mode']&PSF1_MODEHASSEQ:
+						raise NotImplementedError(PSF1_MODEHASSEQ_msg)
+					
+					has_unicode_table = bool(hedr['mode']&PSF1_MODEHASTAB)
+					nglyphs           = 512 if hedr['mode']&PSF1_MODE512 else 256
+					glyphsize         = hedr['charsize']
+					self.size         = (8,glyphsize)
+				else:
+					raise ValueError("No valid header found")
+				f.seek(s)
+				self.glyphs=[]
+				for i in range(nglyphs):
+					self.glyphs.append(f.read(glyphsize))
+				if has_unicode_table:
+					#TODO: make this streaming
+					self.unicode_table=[]
+					self.unicode_table_seq=[]
+					for c in f.read().decode(*cod).split(sep.decode(*cod)):
+						s=c.split(seq.decode(*cod))
+						self.unicode_table.append(s[0])
+						self.unicode_table_seq.append(s[1:])
+	def _2img(self, cols=32):
 		#TODO: more formatting options
 		im=Image.new(mode='1',size=(
 		 self.size[0] * cols, #WIDTH = (glyph-width) TIMES (number of columns)
@@ -165,7 +187,9 @@ class Psf:
 			  self.size[1]*(i//cols+1) #lower
 			 )
 			)
-		return im.show()
+		return im
+	def display(self,cols=16):
+		return self._2img(cols).show()
 	def _save_v1(self, path):
 		cod=PSF1_ENCODING
 		chl=len('a'.encode(*cod))
